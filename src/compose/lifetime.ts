@@ -1,7 +1,3 @@
-import { resolveTrueSolar } from "../time/trueSolar";
-import { verifyConsensus } from "../consensus";
-import { computeSajuChart } from "../computeSajuChart";
-import { computeMajorFortunes } from "../majorFortune";
 import { computeShensha } from "../core/shensha";
 import { computeInteractions } from "../core/interactions";
 import { buildLifetimeKo } from "../adapters/ko/lifetime";
@@ -9,7 +5,7 @@ import { buildLifetimeCnZiping } from "../adapters/cn-ziping/lifetime";
 import { buildLifetimeCnMangpai } from "../adapters/cn-mangpai/lifetime";
 import { buildLifetimeJp } from "../adapters/jp/lifetime";
 import { STEMS } from "../hanja";
-import type { Branch, Stem } from "../hanja";
+import type { Stem } from "../hanja";
 import type { MajorFortune } from "../types";
 import type {
   Conflict,
@@ -20,6 +16,7 @@ import type {
   TriNationLifetime,
   TrueSolarMeta,
 } from "../core/extendedTypes";
+import { resolveChartContext } from "./resolveChartContext";
 
 /** buildTriNationLifetime 입력 — 출생 정보 + 성별. */
 export interface BirthInputResolved {
@@ -45,14 +42,6 @@ export function deriveDaeunDirection(yearStem: Stem, gender: "male" | "female"):
   const isYang = stemIndex % 2 === 0;
   const forwardConditions = (isYang && gender === "male") || (!isYang && gender === "female");
   return forwardConditions ? "forward" : "backward";
-}
-
-function consensusToError(libA: { stem: string; branch: string }, libB: { stem: string; branch: string }) {
-  return {
-    code: "LIBRARY_MISMATCH" as const,
-    message: "만세력 라이브러리 결과 불일치",
-    details: { libA, libB },
-  };
 }
 
 function safeFrame(fn: () => LifetimeFrame, school: School): LifetimeFrame {
@@ -98,40 +87,15 @@ function safeFrame(fn: () => LifetimeFrame, school: School): LifetimeFrame {
  * @throws verifyConsensus 내부에서 throw 발생 가능 (예: lunar calendar 입력 처리 중). LIBRARY_MISMATCH는 throw 가 아닌 Result.error로 반환된다.
  */
 export function buildTriNationLifetime(input: BirthInputResolved): Result<TriNationLifetime> {
-  // 1) 진태양시 보정 + 시주 ambiguity 감지
-  const trueSolar = resolveTrueSolar(input);
+  const ctx = resolveChartContext(input);
+  if (!ctx.ok) return ctx;
 
-  // 2) 만세력 합의 검증 — 두 라이브러리 일주 비교
-  const consensus = verifyConsensus({
-    birthDateLocal: input.birthDateLocal,
-    calendar: input.calendar,
-  });
-  if (!consensus.ok) {
-    return { ok: false, error: consensusToError(consensus.libA, consensus.libB) };
-  }
+  const { chart, daeun: daeunRaw, trueSolar } = ctx.value;
 
-  // 3) chart + 대운
-  const chart = computeSajuChart({
-    birthDate: input.birthDateLocal,
-    birthTime: input.birthTimeLocal,
-    calendar: input.calendar,
-    gender: input.gender,
-    birthCity: null,
-  });
-  const daeunRaw: MajorFortune[] = computeMajorFortunes({
-    birthDate: input.birthDateLocal,
-    birthTime: input.birthTimeLocal,
-    calendar: input.calendar,
-    gender: input.gender,
-  });
-
-  // 4) 신살 + 합충형
+  // 신살 + 합충형
   const shensha = computeShensha(chart.pillars);
   const interactions = computeInteractions(chart.pillars);
 
-  // 5) ExtendedChart 4 필드 구성 (spread 금지 — typed contract 준수)
-  // NOTE: trueSolar.ambiguityWindow.candidateBranches 는 string[] 로 선언돼 있으나
-  //       값은 HOUR_BRANCHES literal 에서 옴 → Branch 로 안전 cast.
   const extendedChart: ExtendedChart = {
     shensha,
     interactions,
@@ -140,22 +104,18 @@ export function buildTriNationLifetime(input: BirthInputResolved): Result<TriNat
       ? {
           hourAmbiguity: {
             boundaryHour: trueSolar.ambiguityWindow.boundaryHour,
-            candidateBranches: trueSolar.ambiguityWindow.candidateBranches as [Branch, Branch],
+            candidateBranches: trueSolar.ambiguityWindow.candidateBranches,
           },
         }
       : {}),
   };
 
-  // 6) daeun shape 변환: MajorFortune[] 메타만 추출 ({ startAge, direction }).
-  //    pillar 배열은 rawChart.majorFortunes 가 단일 소스 — 직렬화 중복 제거.
   const direction = deriveDaeunDirection(chart.pillars.year.stem, input.gender);
   const daeun: TriNationLifetime["daeun"] = {
     startAge: daeunRaw[0]?.startAge ?? 0,
     direction,
   };
 
-  // 7) 4 학파 어댑터 호출 (safe 폴백 — 단일 어댑터 실패가 전체를 막지 않음)
-  // Readonly: 어댑터가 ctx 객체를 mutate 하지 못하도록 컴파일 타임 보호.
   const ctxShared: Readonly<{ daeun: MajorFortune[]; trueSolar: TrueSolarMeta }> = {
     daeun: daeunRaw,
     trueSolar: { trueSolarMinutesOffset: trueSolar.trueSolarMinutesOffset, hourKnown: trueSolar.hourKnown },
@@ -167,7 +127,6 @@ export function buildTriNationLifetime(input: BirthInputResolved): Result<TriNat
     jp: safeFrame(() => buildLifetimeJp(chart, ctxShared), "jp"),
   };
 
-  // 8) crossCheck 산출
   const gyeokgukSchools: Partial<Record<School, string>> = {
     ko: frames.ko.formatGyeokguk.name,
     "cn-ziping": frames.cnZiping.formatGyeokguk.name,
@@ -176,8 +135,6 @@ export function buildTriNationLifetime(input: BirthInputResolved): Result<TriNat
   };
   const gyeokgukConsensus = new Set(Object.values(gyeokgukSchools)).size === 1;
 
-  // TODO(phase-6): 학파별 yongshin 추론 도입 후 4 학파 간 conflict 실측 산출
-  // v0.1: 4 어댑터 모두 yongshin: undefined → 비교 대상 없음 → 빈 배열.
   const yongshinConflicts: Conflict[] = [];
 
   return {
@@ -192,10 +149,8 @@ export function buildTriNationLifetime(input: BirthInputResolved): Result<TriNat
       },
       frames,
       crossCheck: {
-        // TODO(phase-6): 4 학파 pillars 등가성 검증 함수 도입 (현재는 어댑터 pillarsAnnotated 미구현 — trivially true)
         pillarsAgree: true,
         gyeokgukConsensus: { consensus: gyeokgukConsensus, schools: gyeokgukSchools },
-        // TODO(phase-6): 학파별 yongshin 추론 도입 후 실 충돌 검출 (v0.1 어댑터 모두 yongshin undefined)
         yongshinConflicts,
       },
     },

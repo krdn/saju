@@ -1,9 +1,6 @@
 import type { SajuChart } from "../types";
 import type { TriNationDailyLite, DailyLiteFrame } from "../types/daily-tri";
 import type { Result } from "../core/extendedTypes";
-import { resolveTrueSolar } from "../time/trueSolar";
-import { verifyConsensus } from "../consensus";
-import { computeSajuChart } from "../computeSajuChart";
 import { buildYongshinKo } from "../adapters/ko/yongshin";
 import { buildDailyLiteKo } from "../adapters/ko/daily";
 import { buildYongshinCnZiping } from "../adapters/cn-ziping/yongshin";
@@ -13,6 +10,7 @@ import { buildDailyLiteCnMangpai } from "../adapters/cn-mangpai/daily";
 import { buildYongshinJp } from "../adapters/jp/yongshin";
 import { buildDailyLiteJp } from "../adapters/jp/daily";
 import type { BirthInputResolved } from "./lifetime";
+import { resolveChartContext } from "./resolveChartContext";
 
 /**
  * 4학파 dayVibe 의 합의 — 3/4 학파 이상이 같은 값을 내면 그 값, 아니면 "neutral".
@@ -60,49 +58,15 @@ export function buildTriNationDailyLite(args: {
   };
 }
 
-/**
- * v0.3 Phase 4 — BirthInputResolved + forDate 입력만으로 TriNationDailyLite 빌드.
- *
- * yearly/monthly wrapper 와 동일 패턴 (resolveTrueSolar → verifyConsensus → chart →
- * compose). daeun 은 일진 평가에 불필요해 computeMajorFortunes 호출 제거 — 빌드 비용
- * 감소. 합의 불일치 시 LIBRARY_MISMATCH Result.error.
- *
- * 메모리 `saju-yearly-wrapper-pattern` — packages/saju 안에서 wrapper 가 verifyConsensus
- * 를 직접 호출해야 자기모순 방지.
- */
 export function buildTriNationDailyLiteFromBirth(args: {
   input: BirthInputResolved;
   forDate: string;
 }): Result<TriNationDailyLite> {
-  const { input, forDate } = args;
-
-  resolveTrueSolar(input);
-
-  const consensus = verifyConsensus({
-    birthDateLocal: input.birthDateLocal,
-    calendar: input.calendar,
-  });
-  if (!consensus.ok) {
-    return {
-      ok: false,
-      error: {
-        code: "LIBRARY_MISMATCH",
-        message: "만세력 라이브러리 결과 불일치",
-        details: { libA: consensus.libA, libB: consensus.libB },
-      },
-    };
-  }
-
-  const chart: SajuChart = computeSajuChart({
-    birthDate: input.birthDateLocal,
-    birthTime: input.birthTimeLocal,
-    calendar: input.calendar,
-    gender: input.gender,
-    birthCity: null,
-  });
+  const ctx = resolveChartContext(args.input);
+  if (!ctx.ok) return ctx;
 
   return {
     ok: true,
-    value: buildTriNationDailyLite({ chart, forDate }),
+    value: buildTriNationDailyLite({ chart: ctx.value.chart, forDate: args.forDate }),
   };
 }

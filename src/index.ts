@@ -56,6 +56,8 @@ export { computeInteractions } from "./core/interactions";
 export type { Interactions } from "./core/interactions";
 export { buildTriNationLifetime, deriveDaeunDirection } from "./compose/lifetime";
 export type { BirthInputResolved } from "./compose/lifetime";
+export { resolveChartContext } from "./compose/resolveChartContext";
+export type { ChartContext } from "./compose/resolveChartContext";
 export type {
   School,
   SchoolWithCompose,

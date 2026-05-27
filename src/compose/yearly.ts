@@ -1,10 +1,6 @@
 import type { SajuChart, MajorFortune } from "../types";
 import type { TriNationYearly } from "../types/yearly";
 import type { Result } from "../core/extendedTypes";
-import { resolveTrueSolar } from "../time/trueSolar";
-import { verifyConsensus } from "../consensus";
-import { computeSajuChart } from "../computeSajuChart";
-import { computeMajorFortunes } from "../majorFortune";
 import { buildYongshinKo } from "../adapters/ko/yongshin";
 import { buildYearlyKo } from "../adapters/ko/yearly";
 import { buildYongshinCnZiping } from "../adapters/cn-ziping/yongshin";
@@ -14,6 +10,7 @@ import { buildYearlyCnMangpai } from "../adapters/cn-mangpai/yearly";
 import { buildYongshinJp } from "../adapters/jp/yongshin";
 import { buildYearlyJp } from "../adapters/jp/yearly";
 import type { BirthInputResolved } from "./lifetime";
+import { resolveChartContext } from "./resolveChartContext";
 
 function evaluateAgreement(frames: TriNationYearly["frames"]): {
   agreement: "high" | "medium" | "low";
@@ -72,61 +69,21 @@ export function buildTriNationYearly(args: {
   };
 }
 
-/**
- * v0.2 Phase 4 — BirthInputResolved 입력만으로 TriNationYearly 를 빌드하는 wrapper.
- *
- * lifetime 빌더의 step 1~3 (resolveTrueSolar → verifyConsensus → computeSajuChart +
- * computeMajorFortunes) 을 미러링한다. 합의 불일치 시 동일한 `LIBRARY_MISMATCH`
- * 코드로 Result.error 반환 → dashboard 라우트가 v0.1 과 같은 422 매핑 가능.
- *
- * `consensusToError` 로직은 lifetime.ts 와 의도적 코드 복제 — Phase 3 결정사항
- * "학파별 룰 차이 가능성" 일관성 유지 + 모듈 간 private 의존 회피.
- */
 export function buildTriNationYearlyFromBirth(args: {
   input: BirthInputResolved;
   targetYear: number;
   currentAge: number;
 }): Result<TriNationYearly> {
-  const { input, targetYear, currentAge } = args;
+  const ctx = resolveChartContext(args.input);
+  if (!ctx.ok) return ctx;
 
-  // 1) 진태양시 보정 (yearly 는 ambiguityWindow 직접 사용하지 않지만 consensus 와 동일
-  //    lifetime 패턴 유지 — 추후 보정 적용 시 한 곳에서 일관 처리).
-  resolveTrueSolar(input);
-
-  // 2) 만세력 합의 검증 — 두 라이브러리 일주 비교
-  const consensus = verifyConsensus({
-    birthDateLocal: input.birthDateLocal,
-    calendar: input.calendar,
-  });
-  if (!consensus.ok) {
-    return {
-      ok: false,
-      error: {
-        code: "LIBRARY_MISMATCH",
-        message: "만세력 라이브러리 결과 불일치",
-        details: { libA: consensus.libA, libB: consensus.libB },
-      },
-    };
-  }
-
-  // 3) chart + 대운
-  const chart: SajuChart = computeSajuChart({
-    birthDate: input.birthDateLocal,
-    birthTime: input.birthTimeLocal,
-    calendar: input.calendar,
-    gender: input.gender,
-    birthCity: null,
-  });
-  const daeun: MajorFortune[] = computeMajorFortunes({
-    birthDate: input.birthDateLocal,
-    birthTime: input.birthTimeLocal,
-    calendar: input.calendar,
-    gender: input.gender,
-  });
-
-  // 4) TriNationYearly compose
   return {
     ok: true,
-    value: buildTriNationYearly({ chart, daeun, targetYear, currentAge }),
+    value: buildTriNationYearly({
+      chart: ctx.value.chart,
+      daeun: ctx.value.daeun,
+      targetYear: args.targetYear,
+      currentAge: args.currentAge,
+    }),
   };
 }

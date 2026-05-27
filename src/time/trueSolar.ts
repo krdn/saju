@@ -1,3 +1,5 @@
+import type { Branch } from "../hanja";
+
 const STANDARD_LONGITUDE_BY_TZ: Record<string, number> = {
   "Asia/Seoul": 135,
   "Asia/Tokyo": 135,
@@ -20,7 +22,7 @@ export interface ResolvedMoment {
   trueSolarMinutesOffset: number;
   ambiguityWindow?: {
     boundaryHour: number;
-    candidateBranches: [string, string];
+    candidateBranches: [Branch, Branch];
   };
   hourKnown: boolean;
 }
@@ -51,8 +53,8 @@ export function resolveTrueSolar(input: ResolveInput): ResolvedMoment {
   let ambiguityWindow: ResolvedMoment["ambiguityWindow"];
   if (ambiguity) {
     const branchIdx = Math.floor(((trueSolarLocalMinutes + 60) % 1440) / 120);
-    let prev: string;
-    let next: string;
+    let prev: Branch;
+    let next: Branch;
     if (cycleOffset <= 5) {
       // 방금 새 지지로 진입 — 직전 지지와 모호
       prev = HOUR_BRANCHES[(branchIdx + 11) % 12]!;
