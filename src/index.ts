@@ -112,3 +112,34 @@ export {
   buildTriNationDailyLite,
   buildTriNationDailyLiteFromBirth,
 } from "./compose/daily-tri";
+
+// --- Narrative types (v1.0 신규) ---
+export type {
+  NarrativeSchool,
+  NarrativeKeyTerm,
+  LifetimeNarrativeSections,
+  YearlyNarrativeSections,
+  MonthlyNarrativeSections,
+  SchoolSpecificKo,
+  SchoolSpecificZiping,
+  SchoolSpecificMangpai,
+  SchoolSpecificJp,
+  SchoolSpecific,
+} from "./narrative-types";
+
+// --- Frame hash ---
+export { computeFrameHash } from "./frame-hash";
+
+// --- Prompt constants & builders ---
+export { PROMPT_VERSIONS } from "./prompts/constants";
+export type { PromptBundle } from "./prompts/system";
+export { buildLifetimePrompt, LIFETIME_SCHOOL_PROMPTS } from "./prompts/lifetime";
+export { buildYearlyPrompt, YEARLY_SCHOOL_PROMPTS } from "./prompts/yearly";
+export { buildMonthlyPrompt, MONTHLY_SCHOOL_PROMPTS } from "./prompts/monthly";
+export { buildDailyPrompt, DAILY_SCHOOL_PROMPTS } from "./prompts/daily";
+
+// --- Response schemas ---
+export { LIFETIME_SCHOOL_SCHEMAS, type LifetimeNarrativeOutput } from "./schemas/lifetime";
+export { YEARLY_SCHOOL_SCHEMAS, type YearlyNarrativeOutput } from "./schemas/yearly";
+export { MONTHLY_SCHOOL_SCHEMAS, type MonthlyNarrativeOutput } from "./schemas/monthly";
+export { DAILY_SCHOOL_SCHEMAS, type DailyNarrativeOutput } from "./schemas/daily";
