@@ -2,6 +2,7 @@ import type { SajuChart } from "../types";
 import type { Element, Stem, Branch } from "../hanja";
 import { STEM_ELEMENT, BRANCH_ELEMENT } from "../hanja";
 import { BRANCH_HIDDEN_STEMS } from "./branchHiddenStems";
+import { classifyRole } from "./element-relations";
 
 export type Role = "비겁" | "인성" | "식상" | "재성" | "관성";
 
@@ -20,23 +21,7 @@ export interface ShenStrengthResult {
   jonggyeokRole: Role | null;
 }
 
-const PRODUCES: Record<Element, Element> = {
-  wood: "fire", fire: "earth", earth: "metal", metal: "water", water: "wood",
-};
-const PRODUCED_BY: Record<Element, Element> = {
-  fire: "wood", earth: "fire", metal: "earth", water: "metal", wood: "water",
-};
-const CONTROLS: Record<Element, Element> = {
-  wood: "earth", fire: "metal", earth: "water", metal: "wood", water: "fire",
-};
-
-export function classifyRole(dayEl: Element, target: Element): Role {
-  if (target === dayEl) return "비겁";
-  if (target === PRODUCED_BY[dayEl]) return "인성";
-  if (target === PRODUCES[dayEl]) return "식상";
-  if (target === CONTROLS[dayEl]) return "재성";
-  return "관성";
-}
+export { classifyRole } from "./element-relations";
 
 function emptyRoleCount(): Record<Role, number> {
   return { 비겁: 0, 인성: 0, 식상: 0, 재성: 0, 관성: 0 };
