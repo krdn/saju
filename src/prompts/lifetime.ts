@@ -9,20 +9,7 @@
 
 import type { NarrativeSchool } from "../narrative-types";
 import type { PromptBundle } from "./system";
-
-const COMMON_HEADER = `당신은 30년 경력의 사주 명리학 전문가입니다. 비전문가 사용자에게 자신의 명조를 깊이 이해시키는 것이 목표입니다.
-
-[작성 원칙]
-1. 분량: narrativeText 전체 1500~2000자 (5문단). 각 sections 필드는 200~350자.
-2. 용어 풀이: 한자 용어·명리 전문어가 처음 등장할 때 인라인 괄호로 풀어 설명. 예: 傷官格(상관격 — 자신의 재능을 밖으로 표출하려는 기질), 怪罡(괴강 — 강한 자존심과 결단력을 가진 살). 두 번째 등장부터는 풀이 생략.
-3. 섹션별 3층 구조:
-   - personality: 경향성·기질 (일반론, "당신은 ~한 사람입니다")
-   - career: 직업 장면 구체 행동 ("회의에서 ~할 때 ~하세요")
-   - relationship: 관계 장면 구체 행동
-   - health: 건강 관리 구체 행동·계절성·식단
-   - daeunSummary: 대운 흐름의 시간대별 타이밍
-4. 행동 지침은 "그래서 어떻게" 의 수준까지. 추상적 조언("균형 잡으세요") 금지. 상황·시간·대상을 명시.
-5. citations: 인용한 고전/전적의 편명까지 명시. 최소 2개.`;
+import { buildSchoolPrompts, buildPrompt } from "./common";
 
 const KO_BODY = `[학파 고유 관점 — 한국식 자평+조후+신살]
 
@@ -93,22 +80,16 @@ const JP_BODY = `[학파 고유 관점 — 일본 추명학]
 - 격국 성립/파괴 토론. 그건 cn-ziping 의 영역.
 - 신살을 메인으로 다루기. 그건 ko 의 영역.`;
 
-export const LIFETIME_SCHOOL_PROMPTS: Record<NarrativeSchool, string> = {
-  ko: `${COMMON_HEADER}\n\n${KO_BODY}`,
-  "cn-ziping": `${COMMON_HEADER}\n\n${ZIPING_BODY}`,
-  "cn-mangpai": `${COMMON_HEADER}\n\n${MANGPAI_BODY}`,
-  jp: `${COMMON_HEADER}\n\n${JP_BODY}`,
-};
-
-const LIFETIME_USER_SUFFIX = `위 명조를 다음 JSON 스키마로만 답하세요. 마크다운 헤더, 펜스, prose 설명, 인사말 모두 금지. '{' 로 시작해서 '}' 로 끝나는 JSON 본문만 출력:
-{"narrativeText":"1500~2000자 5문단","sections":{"personality":"...","career":"...","relationship":"...","health":"...","daeunSummary":"...","keyTerms":[{"term":"...","gloss":"..."}],"cautions":["..."]},"schoolSpecific":{...학파별...},"citations":["출처1","출처2"]}`;
+export const LIFETIME_SCHOOL_PROMPTS: Record<NarrativeSchool, string> = buildSchoolPrompts("lifetime", {
+  ko: KO_BODY,
+  "cn-ziping": ZIPING_BODY,
+  "cn-mangpai": MANGPAI_BODY,
+  jp: JP_BODY,
+});
 
 export function buildLifetimePrompt(
   frame: unknown,
   school: NarrativeSchool,
 ): PromptBundle {
-  return {
-    system: LIFETIME_SCHOOL_PROMPTS[school],
-    user: `명조 분석:\n${JSON.stringify(frame, null, 2)}\n\n${LIFETIME_USER_SUFFIX}`,
-  };
+  return buildPrompt("lifetime", LIFETIME_SCHOOL_PROMPTS, frame, school);
 }

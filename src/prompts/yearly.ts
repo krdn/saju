@@ -13,20 +13,7 @@
 
 import type { NarrativeSchool } from "../narrative-types";
 import type { PromptBundle } from "./system";
-
-const COMMON_HEADER = `당신은 30년 경력의 사주 명리학 전문가입니다. 비전문가 사용자에게 올해 한 해의 흐름을 깊이 이해시키는 것이 목표입니다.
-
-[작성 원칙]
-1. 분량: narrativeText 전체 1200~1600자 (4~5문단). 각 sections 필드는 200~280자.
-2. 용어 풀이: 한자 용어·명리 전문어가 처음 등장할 때 인라인 괄호로 풀어 설명. 예: 종아격(從兒格 — 일간이 식상에 종속하는 격국), 식상생재(食傷生財 — 식상이 재성을 생하는 흐름), 세운(歲運 — 올해 한 해의 운). 두 번째 등장부터는 풀이 생략.
-3. 섹션별 3층 구조:
-   - personality: 올해 드러나는 기질·태도 (일반론, "당신은 올해 ~한 태도로")
-   - career: 직업·재물 장면 구체 행동 ("Q3 분기 회의에서 ~할 때 ~하세요")
-   - relationship: 관계 장면 구체 행동
-   - health: 건강 관리 구체 행동·계절성·식단
-   - daeunSummary: 현 대운 구간이 올해에 미치는 영향과 분기별 타이밍
-4. 행동 지침은 "그래서 어떻게" 의 수준까지. 추상적 조언("균형 잡으세요") 금지. 상황·시간·대상을 명시.
-5. citations: 인용한 고전/전적의 편명까지 명시. 최소 2개.`;
+import { buildSchoolPrompts, buildPrompt } from "./common";
 
 const KO_BODY = `[학파 고유 관점 — 한국식 자평+조후+신살, 올해 세운]
 
@@ -97,22 +84,16 @@ const JP_BODY = `[학파 고유 관점 — 일본 추명학, 올해 세운]
 - 격국 성립/파괴 토론. 그건 cn-ziping 의 영역.
 - 신살을 메인으로 다루기. 그건 ko 의 영역.`;
 
-export const YEARLY_SCHOOL_PROMPTS: Record<NarrativeSchool, string> = {
-  ko: `${COMMON_HEADER}\n\n${KO_BODY}`,
-  "cn-ziping": `${COMMON_HEADER}\n\n${ZIPING_BODY}`,
-  "cn-mangpai": `${COMMON_HEADER}\n\n${MANGPAI_BODY}`,
-  jp: `${COMMON_HEADER}\n\n${JP_BODY}`,
-};
-
-const YEARLY_USER_SUFFIX = `위 명조를 다음 JSON 스키마로만 답하세요. 마크다운 헤더, 펜스, prose 설명, 인사말 모두 금지. '{' 로 시작해서 '}' 로 끝나는 JSON 본문만 출력:
-{"narrativeText":"1200~1600자 4~5문단","sections":{"personality":"...","career":"...","relationship":"...","health":"...","daeunSummary":"...","keyTerms":[{"term":"...","gloss":"..."}],"cautions":["..."]},"schoolSpecific":{...학파별...},"citations":["출처1","출처2"]}`;
+export const YEARLY_SCHOOL_PROMPTS: Record<NarrativeSchool, string> = buildSchoolPrompts("yearly", {
+  ko: KO_BODY,
+  "cn-ziping": ZIPING_BODY,
+  "cn-mangpai": MANGPAI_BODY,
+  jp: JP_BODY,
+});
 
 export function buildYearlyPrompt(
   frame: unknown,
   school: NarrativeSchool,
 ): PromptBundle {
-  return {
-    system: YEARLY_SCHOOL_PROMPTS[school],
-    user: `명조 분석:\n${JSON.stringify(frame, null, 2)}\n\n${YEARLY_USER_SUFFIX}`,
-  };
+  return buildPrompt("yearly", YEARLY_SCHOOL_PROMPTS, frame, school);
 }
