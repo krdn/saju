@@ -1,8 +1,10 @@
 {
   "name": "@krdn/saju",
-  "version": "1.0.0",
+  "version": "1.2.1",
   "type": "module",
   "description": "Four Pillars of Destiny (Saju) — multi-school computation engine with prompts and Zod schemas",
+  "license": "MIT",
+  "keywords": ["saju", "사주", "명리학", "fortune-telling", "korean", "chinese", "japanese", "ziping", "mangpai"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -19,6 +21,10 @@
     "prepack": "pnpm build"
   },
   "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "dependencies": {
     "korean-lunar-calendar": "^0.3.6",
     "lunar-javascript": "1.7.7",
